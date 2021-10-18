@@ -11,6 +11,13 @@ class enzymeBayes:
     def __init__(self, dirs_, loadFromCvs=True, tot_x=None, tot_y=None, 
                     tot_t=None, tot_mom=None, tot_track_info=None, tot_track_id=None, 
                         tot_msd=None, tot_msd_id=None, BI=None, jump=0, ml=5, fts=1, ptm=1):
+
+        """
+        Some useful args: 
+        int jump is used for the function ignorelongjump(). 
+        arr tot_track_info: contains the length of each detected tracks
+        arr tot_track_id: contains the mapping to the original csv for each track
+        """
         
         if loadFromCvs: 
             tot_x, tot_y, tot_t = [], [], []
@@ -46,6 +53,10 @@ class enzymeBayes:
 
     @staticmethod
     def loadMin(df, minLength, frameToSecond, pixelToMeter, file_number):
+        """
+        funtion used for data loading
+        """
+
         iMax = int(df["Trajectory"].iloc[-1])
         x_lis, y_lis, t_lis = [], [], []
         traj_track = []
@@ -74,6 +85,10 @@ class enzymeBayes:
 
     @staticmethod
     def combineData(lis):
+        """
+        funtion used for data loading
+        """
+
         # obtain the first traj (from the first item of the list)
         total_var = lis[0][0].reshape(len(lis[0][0]), 1)
 
@@ -97,6 +112,10 @@ class enzymeBayes:
                        dir_, min_length, frameToSecond=1, pixelToMeter=1
                        ):
         entries = Path(dir_)
+
+        """
+        main data loading function
+        """
 
         # obtain total number of trajectory files
         file_count = 0
@@ -177,6 +196,13 @@ class enzymeBayes:
     # use track_info and full data set to obtain a specific trajectory
     def loadSelectTraj(self, conc, index, isMom=False):
 
+        """
+        load a single track from a given data set
+        :param int conc: index for specific concentration
+        :param int index: index for individual track
+        :return arr x, y, t: time course data 
+        """
+
         # get the correct concentration
         x, y, t = self.tot_x[conc], self.tot_y[conc], self.tot_t[conc]
         track_info = self.tot_track_info[conc]
@@ -208,6 +234,10 @@ class enzymeBayes:
     @staticmethod
     def breakup(sx, sy, st, mom, longjump):
 
+        """
+        Function used for ignoreLongJump
+        """
+
         new_tracks = []
         sdt = np.diff(st)
         ind_ = np.where(sdt >= longjump)[0]
@@ -238,6 +268,9 @@ class enzymeBayes:
         return new_tracks
 
     def ignoreLongJump(self):
+        """
+        This function will go through all loaded data and breakup tracks at places where tau is greater then 'jump'
+        """
 
         tot_x, tot_y, tot_t, tot_track_info, tot_mom = [], [], [], [], []
         tot_msd_id, tot_BI = [], []
@@ -282,6 +315,10 @@ class enzymeBayes:
         beta = np.sum((sdx ** 2 + sdy ** 2) / 4 / sdt) + b
 
         return beta / (alpha - 1)
+
+    """This block of codes are the test quantities that I implmented"""
+    """any function starts with tq_ is the test quantity"""
+    """There are some variations: dx is not the same as displacement (which is calulated from sqrt(dx**2+dy**2)"""
 
     @staticmethod
     def dx_lag_pos(sdt, lag):
@@ -384,22 +421,6 @@ class enzymeBayes:
         autodx = np.sum(a * b, axis=0) / np.sqrt(np.sum(a ** 2, axis=0) * np.sum(b ** 2, axis=0))
 
         return autodx
-
-    # def tq_autox(self, x_, *argv): 
-    #     # argv contains sdt and lag time
-    
-    #     if x_.ndim == 1:
-    #         x_ = x_.reshape((len(x_), 1))
-            
-    #     sdt, lag = argv[0][0], argv[0][1]
-    #     pos1, pos2 = self.dx_lag_pos(sdt, lag)
-    #     x1, x2 = x_[pos1, :], x_[pos2, :]
-        
-    #     a = x1 - np.expand_dims(x1.mean(axis=0), axis=0)
-    #     b = x2 - np.expand_dims(x2.mean(axis=0), axis=0)
-    #     temp_autox = np.sum(a * b, axis=0) / np.sqrt(np.sum(a ** 2, axis=0) * np.sum(b ** 2, axis=0))
-        
-    #     return temp_autox
             
     def tq_autodx(self, x_, *argv):
         # argv contains sdt
@@ -417,7 +438,18 @@ class enzymeBayes:
 
         return temp_autodx
 
+    """end of tq code block"""
+
     def p_value_disp(self, conc, test_eval, orders, a=1, b=1, sample_size=4000):
+        """
+        to compute p_values (for test quantities related to displacement) for a specific concentration data set
+        :param int conc: index for specific concentration
+        :param list test_eval: a list contains the name and info about the test quantities we want to compute, see notebook for examples
+        :param arr orders: the index of tracks that we wish to analyze
+        :param float a, b: hyperparam for the inverse gamma dist
+        :param int sample_size: number of simulated tracks to generate
+        :return:  a nxm matrix where n is the total number of tracks and m is the number of test quantities 
+        """
 
         n_test = len(test_eval)
         p_tot = np.zeros((len(orders), n_test))
@@ -463,7 +495,16 @@ class enzymeBayes:
         return p_tot
 
     # generate p_values
-    def p_value_general(self, conc, test_eval, orders, a=1, b=1, sample_size=4000):
+    def p_value_dxy(self, conc, test_eval, orders, a=1, b=1, sample_size=4000):
+        """
+        to compute p_values (for test quantities related to dx/dy) for a specific concentration data set
+        :param int conc: index for specific concentration
+        :param list test_eval: a list contains the name and info about the test quantities we want to compute, see notebook for examples
+        :param arr orders: the index of tracks that we wish to analyze
+        :param float a, b: hyperparam for the inverse gamma dist
+        :param int sample_size: number of simulated tracks to generate
+        :return:  a nxm matrix where n is the total number of tracks and m is the number of test quantities times 2
+        """
 
         n_test = len(test_eval)
 
@@ -504,6 +545,17 @@ class enzymeBayes:
         return p_tot
 
     def rank(self, conc, sel_ind, ml, a=1, b=1):
+        """
+        return different info about the data within a concentration dataset 
+        :param int conc: index for specific concentration
+        :param arr sel_ind: the index of the track that we wish to look at (the same as the arg 'order' appeared in other function)
+        :param int ml: minimun length threshold
+        :return list ranking: a list contains the avg 0th moment of intensity for each track
+        :return list tl: a list contains track length for each track
+        :return list index: same as sel_ind, not sure why this is need
+        :return list map_: a list contains map estimation for D for each track
+        :return list avg_dt: a list contains avg measurement time interval for each track
+        """
 
         ranking = []
         tl, index = [], []
@@ -527,6 +579,9 @@ class enzymeBayes:
         return ranking, tl, index, map_, avg_dt
 
     def meLogEv(self, conc, ind_):
+
+        """compute the loglikehood for the marginlized noise model"""
+
         longx, longy, longt = self.loadSelectTraj(conc, ind_)
 
         lam = 2
@@ -567,6 +622,14 @@ class enzymeBayes:
 
     def computePosteriors(self, conc, order, alpha=1, beta=1):
 
+        """
+        compute posterios for a given track
+        :param int conc: index for specific concentration
+        :param arr orders: the index of tracks that we wish to analyze
+        :param float a, b: hyperparam for the inverse gamma dist
+        :return float mode, arr CI: mode and confidence interval for the parameter
+        """
+
         mode = np.zeros((len(order), ))
         CI = np.zeros((len(order), 2))
 
@@ -583,6 +646,14 @@ class enzymeBayes:
         return mode, CI
 
     def computeHyperParams(self, conc, orders):
+
+        """
+        Compute the population model a and b using the marginalized likelihood
+        :param int conc: index for specific concentration
+        :param arr orders: the index of tracks that we wish to analyze
+        :return minimized a and b value
+        """
+
 
         log_tau_i = np.zeros((len(orders), ))
         a_pre, b_pre = np.zeros((len(orders), )), np.zeros((len(orders), ))
